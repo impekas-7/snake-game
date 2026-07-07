@@ -16,6 +16,45 @@
 
   let snake, direction, nextDirection, food, score, highscore, state, lastTick;
 
+  let audioCtx = null;
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playTone(freq, startTime, duration, type, volume) {
+    const ctxA = getAudioCtx();
+    const osc = ctxA.createOscillator();
+    const gain = ctxA.createGain();
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(volume || 0.15, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctxA.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  function playEatSound() {
+    const now = getAudioCtx().currentTime;
+    playTone(880, now, 0.08, 'square', 0.15);
+  }
+
+  function playGameOverSound() {
+    const now = getAudioCtx().currentTime;
+    const notes = [392, 349, 330, 294, 262, 220];
+    notes.forEach((freq, i) => {
+      playTone(freq, now + i * 0.12, 0.15, 'square', 0.18);
+    });
+  }
+
   function loadHighscore() {
     return parseInt(localStorage.getItem(HIGHSCORE_KEY), 10) || 0;
   }
@@ -58,6 +97,7 @@
   }
 
   function setDirection(dx, dy) {
+    getAudioCtx();
     const candidate = { x: dx, y: dy };
     if (isOpposite(candidate, direction)) return;
     nextDirection = candidate;
@@ -84,6 +124,7 @@
       score += 1;
       updateScoreDisplay();
       placeFood();
+      playEatSound();
     } else {
       snake.pop();
     }
@@ -91,6 +132,7 @@
 
   function gameOver() {
     state = 'gameover';
+    playGameOverSound();
     if (score > highscore) {
       highscore = score;
       saveHighscore(highscore);
@@ -174,6 +216,7 @@
   let touchStart = null;
 
   canvas.addEventListener('touchstart', (e) => {
+    getAudioCtx();
     const t = e.changedTouches[0];
     touchStart = { x: t.clientX, y: t.clientY };
   }, { passive: true });
@@ -201,6 +244,7 @@
   }, { passive: true });
 
   canvas.addEventListener('click', () => {
+    getAudioCtx();
     if (state === 'gameover') resetGame();
   });
 
